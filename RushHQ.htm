@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RushHQ</title>
+<style>
+  @font-face { font-family: 'MSWFont'; src: url('msw.ttf') format('truetype'); }
+  @font-face { font-family: 'staff'; src: url('staff.otf') format('opentype'); }
+
+  body {
+    margin: 0;
+    background-color: lightBlue;
+    overflow-x: hidden;
+  }
+
+  /* Background layers */
+  #snow { background-image: url('bruh.png'); background-repeat: repeat; position: fixed; top:0; left:0; width:100vw; height:100vh; z-index:1; animation: snow 1000s linear infinite; }
+  @keyframes snow { 0%{background-position:0 0;} 100%{background-position:50000px 0;} }
+
+  #aa-layer { background-image: url('aa.png'); background-repeat: repeat; position: fixed; top:0; left:0; width:100vw; height:100vh; z-index:5; animation: aaScroll 300s linear infinite; pointer-events:none; }
+  @keyframes aaScroll { 0%{background-position:0 0;} 100%{background-position:25000px 0;} }
+
+  /* Foreground container */
+  #front-container { position: fixed; top:50%; left:50%; transform: translate(-50%, -50%); z-index:10; max-width:90vw; max-height:90vh; pointer-events:none; }
+  #front-container img { max-width:100%; display:block; pointer-events:auto; }
+
+  #front-text { position:absolute; top:40%; left:46%; transform: translate(-50%, -50%); font-family:'staff', Arial, sans-serif; font-size:3vw; display:flex; align-items:center; gap:0.5vw; pointer-events:none; color:black; }
+  #front-text img { height:3vw; width:auto; pointer-events:auto; }
+
+  /* Links closer together */
+  #links { position:absolute; top:60%; left:50%; transform:translateX(-50%); color:black; font-family:'MSWFont', Arial, sans-serif; font-size:1.5vw; white-space:nowrap; width:auto; text-align:center; }
+  #links a { color:black; text-decoration:none; margin:0 0.5vw; pointer-events:auto; }
+  #links a:hover { text-decoration:underline; cursor:pointer; }
+
+  /* Fade overlay */
+  #fade-overlay { position:fixed; top:0; left:0; width:100vw; height:100vh; background:black; opacity:0; pointer-events:none; z-index:9999; transition: opacity 1s ease; }
+
+  /* Safe image */
+  #safe-image { position:fixed; top:55%; left:50%; transform:translate(-50%, -50%); max-width:80vw; max-height:80vh; opacity:0; pointer-events:none; z-index:10000; transition: opacity 1s ease; }
+
+  /* Mute button container */
+  #mute-container { position:fixed; bottom:15px; right:15px; display:flex; align-items:center; gap:10px; z-index:20000; }
+
+  /* Song title label */
+  #song-title {
+    background: rgba(0,0,0,0.6); color:white; padding:5px 10px;
+    border-radius:5px; font-family: 'MSWFont', sans-serif;
+    font-size:0.9rem; white-space:nowrap;
+    transform: translateX(100%);
+    opacity:0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    pointer-events:none;
+  }
+
+  /* Modern mute button */
+  #mute-btn { width:45px; height:45px; background: rgba(0,0,0,0.6); border:none; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  #mute-btn svg { width:24px; height:24px; fill:white; }
+</style>
+</head>
+<body>
+<div id="snow"></div>
+<div id="aa-layer"></div>
+
+<div id="front-container">
+  <img src="RushHQ_files/main-win.png" alt="Welcome Sign">
+  <div id="front-text">
+    <img src="RushHQ_files/pfp.png" alt="Profile Picture">
+    <span>RushHQ</span>
+  </div>
+  <div id="links">
+    <a href="https://www.youtube.com/@rushhq0" target="_blank">YouTube</a>
+    <a href="https://x.com/rushhq0" target="_blank">Twitter</a>
+    <a href="https://bsky.app/profile/rushhq.bsky.social" target="_blank">Bluesky</a>
+    <a href="https://www.furaffinity.net/user/rushhq" target="_blank">Furaffinity (18+)</a>
+  </div>
+</div>
+
+<div id="fade-overlay"></div>
+<img id="safe-image" src="RushHQ_files/safe.jpg" alt="Safe Image">
+
+<audio id="secret-sound" src="RushHQ_files/OneShot%20getitem%20sound%20effect.mp3"></audio>
+<audio id="bg-music" src="RushHQ_files/Yuni%20Wa%20-%20Light%20Blue.mp3" loop=""></audio>
+
+<!-- Mute container with song title -->
+<div id="mute-container">
+  <div id="song-title" style="transform: translateX(100%); opacity: 0; pointer-events: none;">Yuni Wa - Light Blue</div>
+  <button id="mute-btn">
+    <svg id="volume-icon" viewBox="0 0 24 24">
+      <path d="M3 9v6h4l5 5V4L7 9H3z"></path>
+      <path id="mute-wave" d="M16.5 12c0-1.77-1-3.29-2.5-4.03v8.06c1.5-.74 2.5-2.26 2.5-4.03z" style="display: none;"></path>
+    </svg>
+  </button>
+</div>
+
+<script>
+const sound = document.getElementById('secret-sound');
+const bgMusic = document.getElementById('bg-music');
+const overlay = document.getElementById('fade-overlay');
+const safeImage = document.getElementById('safe-image');
+const muteBtn = document.getElementById('mute-btn');
+const muteWave = document.getElementById('mute-wave');
+const songTitle = document.getElementById('song-title');
+
+// Music starts muted
+bgMusic.muted = true;
+muteWave.style.display = 'none';
+songTitle.style.transform = 'translateX(100%)';
+songTitle.style.opacity = '0';
+
+// Fade helpers
+function fadeInMusic(audio, target, duration) {
+  let v = 0;
+  const step = target / (duration / 50);
+  audio.volume = 0;
+  audio.muted = false;
+  const f = setInterval(() => {
+    v += step;
+    if (v >= target) { v = target; clearInterval(f); }
+    audio.volume = v;
+  }, 50);
+}
+function fadeOutMusic(audio, duration) {
+  const step = audio.volume / (duration / 50);
+  const f = setInterval(() => {
+    let newVol = audio.volume - step;
+    if (newVol <= 0) { audio.volume = 0; clearInterval(f); audio.pause(); }
+    else audio.volume = newVol;
+  }, 50);
+}
+function fadeIn(el, d) { el.style.transition=`opacity ${d}ms`; el.style.opacity="1"; }
+function fadeOut(el, d) { el.style.transition=`opacity ${d}ms`; el.style.opacity="0"; }
+
+
+// Mute/unmute button
+songTitle.style.pointerEvents = 'none';
+muteBtn.addEventListener('click', () => {
+  if(bgMusic.muted){
+    bgMusic.muted = false; // unmute first
+    bgMusic.play().catch(()=>{}); // then play
+    fadeInMusic(bgMusic, 0.4, 2000);
+    muteWave.style.display = 'inline';
+    songTitle.style.transform = 'translateX(0)';
+    songTitle.style.opacity = '1';
+  } else {
+    bgMusic.muted = true;
+    muteWave.style.display = 'none';
+    songTitle.style.transform = 'translateX(100%)';
+    songTitle.style.opacity = '0';
+  }
+});
+
+// Link click effects
+document.querySelectorAll('#links a').forEach(link => {
+  link.addEventListener('click', e => {
+    e.preventDefault();
+    const url = link.href;
+
+    sound.currentTime = 0;
+    sound.play().catch(()=>{});
+
+    fadeOutMusic(bgMusic, 500);
+    overlay.style.opacity="1";
+    overlay.style.pointerEvents="auto";
+
+    fadeIn(safeImage, 2300);
+    setTimeout(()=>fadeOut(safeImage,1000),1500);
+    setTimeout(()=>window.location.href=url,3500);
+  });
+});
+</script>
+
+
+</body></html>
